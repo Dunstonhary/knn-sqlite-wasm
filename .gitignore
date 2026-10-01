@@ -5,3 +5,9 @@ coverage/
 .DS_Store
 .runtime/
 .serena/
+
+# Gas Town injects these into each polecat worktree. They are per-agent state,
+# not project source, so they must not reach master.
+/.beads/
+/.claude/
+/CLAUDE.md
