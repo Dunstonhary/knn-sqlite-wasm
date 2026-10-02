@@ -11,3 +11,9 @@ coverage/
 /.beads/
 /.claude/
 /CLAUDE.md
+
+# Gas Town (added by gt)
+.logs/
+__pycache__/
+state.json
+CLAUDE.local.md
