@@ -1,9 +1,16 @@
-import { MessageCircleQuestion, Search } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { Info, MessageCircleQuestion, Search } from 'lucide-react'
+import { useId, useMemo, useState } from 'react'
 import { ResultCard } from '@/components/result-card'
 import { hybridCaption } from '@/components/score-bars'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import { KnnSearchProvider } from '@/search/knn-provider'
 import { MockSearchProvider } from '@/search/mock-provider'
 import { AREAS, type Area } from '@/search/types'
@@ -11,7 +18,7 @@ import { useSearch } from '@/search/use-search'
 
 type EngineKey = 'knn' | 'mock'
 
-export function FaqSearch({ showScores = false }: { showScores?: boolean }) {
+export function FaqSearch() {
   // Built once: the KNN provider embeds and indexes the whole corpus on first
   // use, and rebuilding it on every render would redo that work.
   const knn = useMemo(() => new KnnSearchProvider(), [])
@@ -20,6 +27,11 @@ export function FaqSearch({ showScores = false }: { showScores?: boolean }) {
   const [engineKey, setEngineKey] = useState<EngineKey>('knn')
   const [query, setQuery] = useState('')
   const [area, setArea] = useState<Area | null>(null)
+  // Display-only, and deliberately not persisted: the bars are a tuning aid, so
+  // every visit starts clean. Flipping this re-renders the cards but never
+  // touches the provider, so the results and their order stay as they are.
+  const [showScores, setShowScores] = useState(false)
+  const showScoresId = useId()
 
   const engine = engineKey === 'knn' ? knn : mock
   const { empty, rows, pending, error } = useSearch(engine, query, area)
@@ -109,6 +121,32 @@ export function FaqSearch({ showScores = false }: { showScores?: boolean }) {
       >
         {status}
       </p>
+
+      <div className="mb-2.5 flex items-center gap-2">
+        <Checkbox
+          id={showScoresId}
+          checked={showScores}
+          onCheckedChange={(checked) => setShowScores(checked === true)}
+        />
+        <label htmlFor={showScoresId} className="text-xs text-muted-foreground">
+          Show score bars
+        </label>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger
+              type="button"
+              aria-label="What are score bars?"
+              className="text-muted-foreground outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 rounded-sm"
+            >
+              <Info className="size-3.5" />
+            </TooltipTrigger>
+            <TooltipContent className="max-w-[260px]">
+              Per-result semantic, keyword and hybrid scores. Display only — the ranking already
+              uses them, so toggling this changes nothing but the view.
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </div>
 
       <div className="flex flex-col gap-2">
         {rows.map((entry) => (

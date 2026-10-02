@@ -96,8 +96,11 @@ naive token-overlap baseline.
 
 ```bash
 npm run dev -w faq-search
-VITE_SHOW_SCORES=1 npm run dev -w faq-search   # show per-channel score bars
 ```
+
+A "Show score bars" checkbox above the results reveals the per-channel
+semantic, keyword and hybrid scores. It is display only — the scores are
+always computed, and the ranking does not change.
 
 The demo's embedder is a deterministic hash stand-in (FNV-1a over words and
 character trigrams) so it needs no model download. It is **lexical, not
