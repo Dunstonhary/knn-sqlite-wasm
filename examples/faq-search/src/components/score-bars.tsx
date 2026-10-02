@@ -5,7 +5,8 @@ const pct = (v: number) => Math.round(v * 100)
 
 /**
  * Per-channel score readout. This is a debugging affordance for tuning the
- * fusion weights, not end-user UI — gate it behind the debug flag.
+ * fusion weights, not end-user UI — it renders only while the "Show score
+ * bars" checkbox is ticked.
  */
 export function ScoreBars({ entry }: { entry: ScoredEntry }) {
   if (entry.sem === undefined || entry.kw === undefined || entry.hybrid === undefined) {

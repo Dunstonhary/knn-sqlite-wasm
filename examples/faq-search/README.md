@@ -7,8 +7,11 @@ toggle to compare it against a naive token-overlap baseline.
 nvm use                                        # Node >=22.12.0
 npm install                                    # from the repo root
 npm run dev -w faq-search
-VITE_SHOW_SCORES=1 npm run dev -w faq-search   # per-channel score bars
 ```
+
+Tick "Show score bars" above the results for the per-channel semantic, keyword
+and hybrid scores. Display only — they are computed either way and the ranking
+is unaffected.
 
 ## How it works
 
