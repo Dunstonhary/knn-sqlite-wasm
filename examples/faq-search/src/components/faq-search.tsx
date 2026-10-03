@@ -5,12 +5,8 @@ import { hybridCaption } from '@/components/score-bars'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { CONTROL_SIZING } from '@/lib/control-sizing'
 import { KnnSearchProvider } from '@/search/knn-provider'
 import { MockSearchProvider } from '@/search/mock-provider'
 import { AREAS, type Area } from '@/search/types'
@@ -68,7 +64,7 @@ export function FaqSearch() {
             type="button"
             aria-pressed={engineKey === key}
             onClick={() => setEngineKey(key)}
-            className={`flex-1 rounded-md py-1.5 text-[13px] font-semibold transition-colors ${
+            className={`${CONTROL_SIZING.engineToggle} flex-1 rounded-md py-1.5 text-[13px] font-semibold transition-colors ${
               engineKey === key
                 ? 'bg-background text-foreground shadow-xs'
                 : 'text-muted-foreground hover:text-foreground'
@@ -86,7 +82,7 @@ export function FaqSearch() {
           onChange={(e) => setQuery(e.target.value)}
           placeholder="How do I connect my payment provider?"
           aria-label="Search the help centre"
-          className="h-10 pl-9"
+          className={`${CONTROL_SIZING.searchInput} pl-9`}
         />
       </div>
 
@@ -94,7 +90,7 @@ export function FaqSearch() {
         <Button
           variant={area === null ? 'default' : 'outline'}
           size="sm"
-          className="h-7 rounded-md px-3 text-xs"
+          className={`${CONTROL_SIZING.areaChip} rounded-md px-3 text-xs`}
           aria-pressed={area === null}
           onClick={() => setArea(null)}
         >
@@ -105,7 +101,7 @@ export function FaqSearch() {
             key={a}
             variant={area === a ? 'default' : 'outline'}
             size="sm"
-            className="h-7 rounded-md px-3 text-xs"
+            className={`${CONTROL_SIZING.areaChip} rounded-md px-3 text-xs`}
             aria-pressed={area === a}
             onClick={() => setArea(area === a ? null : a)}
           >
@@ -122,30 +118,35 @@ export function FaqSearch() {
         {status}
       </p>
 
-      <div className="mb-2.5 flex items-center gap-2">
-        <Checkbox
-          id={showScoresId}
-          checked={showScores}
-          onCheckedChange={(checked) => setShowScores(checked === true)}
-        />
-        <label htmlFor={showScoresId} className="text-xs text-muted-foreground">
+      <div className="mb-2.5 flex items-center gap-1">
+        {/* The checkbox sits inside its own label so the whole row is one tap
+            target — the 16px box alone never was. */}
+        <label
+          htmlFor={showScoresId}
+          className={`${CONTROL_SIZING.scoreToggleRow} flex items-center gap-2 pr-1 text-xs text-muted-foreground`}
+        >
+          <Checkbox
+            id={showScoresId}
+            checked={showScores}
+            onCheckedChange={(checked) => setShowScores(checked === true)}
+          />
           Show score bars
         </label>
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger
-              type="button"
-              aria-label="What are score bars?"
-              className="text-muted-foreground outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 rounded-sm"
-            >
-              <Info className="size-3.5" />
-            </TooltipTrigger>
-            <TooltipContent className="max-w-[260px]">
-              Per-result semantic, keyword and hybrid scores. Display only — the ranking already
-              uses them, so toggling this changes nothing but the view.
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+        {/* A popover, not a tooltip: touch has no hover, so hover-only helper
+            text is unreachable on a phone no matter how large the trigger. */}
+        <Popover>
+          <PopoverTrigger
+            type="button"
+            aria-label="What are score bars?"
+            className={`${CONTROL_SIZING.helpTrigger} flex items-center justify-center rounded-sm text-muted-foreground outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50`}
+          >
+            <Info className="size-3.5" />
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-[260px] p-3 text-xs">
+            Per-result semantic, keyword and hybrid scores. Display only — the ranking already
+            uses them, so toggling this changes nothing but the view.
+          </PopoverContent>
+        </Popover>
       </div>
 
       <div className="flex flex-col gap-2">
