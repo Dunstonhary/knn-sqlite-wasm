@@ -1,5 +1,6 @@
 import { Info, MessageCircleQuestion, Search } from 'lucide-react'
 import { useId, useMemo, useState } from 'react'
+import { GeometryView } from '@/components/geometry-view'
 import { ResultCard } from '@/components/result-card'
 import { hybridCaption } from '@/components/score-bars'
 import { Button } from '@/components/ui/button'
@@ -13,6 +14,7 @@ import { AREAS, type Area } from '@/search/types'
 import { useSearch } from '@/search/use-search'
 
 type EngineKey = 'knn' | 'mock'
+type TabKey = 'results' | 'space'
 
 export function FaqSearch() {
   // Built once: the KNN provider embeds and indexes the whole corpus on first
@@ -27,6 +29,7 @@ export function FaqSearch() {
   // every visit starts clean. Flipping this re-renders the cards but never
   // touches the provider, so the results and their order stay as they are.
   const [showScores, setShowScores] = useState(false)
+  const [tab, setTab] = useState<TabKey>('results')
   const showScoresId = useId()
 
   const engine = engineKey === 'knn' ? knn : mock
@@ -51,6 +54,34 @@ export function FaqSearch() {
           <p className="text-[13px] text-muted-foreground">Semantic + keyword hybrid search</p>
         </div>
       </header>
+
+      <div
+        className="mb-4 flex gap-1 rounded-lg bg-muted p-1"
+        role="tablist"
+        aria-label="View"
+      >
+        {(
+          [
+            ['results', 'Results'],
+            ['space', 'Vector space'],
+          ] as Array<[TabKey, string]>
+        ).map(([key, label]) => (
+          <button
+            key={key}
+            type="button"
+            role="tab"
+            aria-selected={tab === key}
+            onClick={() => setTab(key)}
+            className={`flex-1 rounded-md py-2 text-[13px] font-semibold transition-colors ${
+              tab === key
+                ? 'bg-background text-foreground shadow-xs'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
 
       <div className="mb-4 flex gap-1 rounded-lg bg-muted p-1" role="group" aria-label="Search engine">
         {(
@@ -110,54 +141,60 @@ export function FaqSearch() {
         ))}
       </div>
 
-      <p
-        className="mb-2.5 text-xs text-muted-foreground"
-        aria-live="polite"
-        data-pending={pending || undefined}
-      >
-        {status}
-      </p>
-
-      <div className="mb-2.5 flex items-center gap-1">
-        {/* The checkbox sits inside its own label so the whole row is one tap
-            target — the 16px box alone never was. */}
-        <label
-          htmlFor={showScoresId}
-          className={`${CONTROL_SIZING.scoreToggleRow} flex items-center gap-2 pr-1 text-xs text-muted-foreground`}
+      {tab === 'results' ? (
+        <>
+        <p
+          className="mb-2.5 text-xs text-muted-foreground"
+          aria-live="polite"
+          data-pending={pending || undefined}
         >
-          <Checkbox
-            id={showScoresId}
-            checked={showScores}
-            onCheckedChange={(checked) => setShowScores(checked === true)}
-          />
-          Show score bars
-        </label>
-        {/* A popover, not a tooltip: touch has no hover, so hover-only helper
-            text is unreachable on a phone no matter how large the trigger. */}
-        <Popover>
-          <PopoverTrigger
-            type="button"
-            aria-label="What are score bars?"
-            className={`${CONTROL_SIZING.helpTrigger} flex items-center justify-center rounded-sm text-muted-foreground outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50`}
-          >
-            <Info className="size-3.5" />
-          </PopoverTrigger>
-          <PopoverContent align="start" className="w-[260px] p-3 text-xs">
-            Per-result semantic, keyword and hybrid scores. Display only — the ranking already
-            uses them, so toggling this changes nothing but the view.
-          </PopoverContent>
-        </Popover>
-      </div>
+          {status}
+        </p>
 
-      <div className="flex flex-col gap-2">
-        {rows.map((entry) => (
-          <ResultCard
-            key={`${entry.item.area}:${entry.item.q}`}
-            entry={entry}
-            showScores={showScores && !empty}
-          />
-        ))}
-      </div>
+        <div className="mb-2.5 flex items-center gap-1">
+          {/* The checkbox sits inside its own label so the whole row is one tap
+              target — the 16px box alone never was. */}
+          <label
+            htmlFor={showScoresId}
+            className={`${CONTROL_SIZING.scoreToggleRow} flex items-center gap-2 pr-1 text-xs text-muted-foreground`}
+          >
+            <Checkbox
+              id={showScoresId}
+              checked={showScores}
+              onCheckedChange={(checked) => setShowScores(checked === true)}
+            />
+            Show score bars
+          </label>
+          {/* A popover, not a tooltip: touch has no hover, so hover-only helper
+              text is unreachable on a phone no matter how large the trigger. */}
+          <Popover>
+            <PopoverTrigger
+              type="button"
+              aria-label="What are score bars?"
+              className={`${CONTROL_SIZING.helpTrigger} flex items-center justify-center rounded-sm text-muted-foreground outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50`}
+            >
+              <Info className="size-3.5" />
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-[260px] p-3 text-xs">
+              Per-result semantic, keyword and hybrid scores. Display only — the ranking already
+              uses them, so toggling this changes nothing but the view.
+            </PopoverContent>
+          </Popover>
+        </div>
+
+        <div className="flex flex-col gap-2">
+          {rows.map((entry) => (
+            <ResultCard
+              key={`${entry.item.area}:${entry.item.q}`}
+              entry={entry}
+              showScores={showScores && !empty}
+            />
+          ))}
+        </div>
+        </>
+      ) : (
+        <GeometryView query={query} />
+      )}
     </div>
   )
 }
