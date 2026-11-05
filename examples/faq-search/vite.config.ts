@@ -5,8 +5,28 @@ import { defineConfig } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
 import { pwaOptions } from './pwa.config.ts'
 
+// GitHub Pages serves the demo from /<repo>/, not a domain root. The deploy
+// workflow sets BASE_PATH; a plain `npm run build` keeps the root default so
+// local `vite preview` still works.
+const base = process.env.BASE_PATH ?? '/'
+
 export default defineConfig({
-  plugins: [react(), tailwindcss(), VitePWA(pwaOptions)],
+  base,
+  plugins: [
+    react(),
+    tailwindcss(),
+    VitePWA({
+      ...pwaOptions,
+      workbox: {
+        ...pwaOptions.workbox,
+        // Precache keys are base-prefixed, so the navigation fallback has to
+        // be too or createHandlerBoundToURL cannot find it. pwa.config.ts
+        // keeps the bare filename; the base belongs to the deploy, not the
+        // policy.
+        navigateFallback: `${base}${pwaOptions.workbox.navigateFallback}`,
+      },
+    }),
+  ],
   resolve: {
     alias: {
       '@': resolve(import.meta.dirname, 'src'),
