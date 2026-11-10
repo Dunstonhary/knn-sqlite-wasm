@@ -90,3 +90,13 @@ export const FAQ: FaqEntry[] = [
     tags: ['integration', 'api', 'webhook', 'developer', 'endpoint', 'key'],
   },
 ]
+
+/**
+ * The text an entry is indexed by.
+ *
+ * The question counts twice because that is what a user's query most
+ * resembles. Lives here, beside the data, because `scripts/embed-corpus.ts`
+ * and the app must use the exact same string — a copy in each would be a
+ * silent correctness bug the moment one changed.
+ */
+export const docText = (e: FaqEntry): string => `${e.q} ${e.q} ${e.a} ${e.tags.join(' ')}`

@@ -29,7 +29,7 @@
     "format": "biome format --write ."
   },
   "dependencies": {
-    "@sqlite.org/sqlite-wasm": "^3.53.4-build1"
+    "sqlite-vec-wasm-demo": "^0.1.9"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.15",

@@ -31,6 +31,10 @@ export interface SearchResult {
   /** True when the query was blank, so rows are suggestions, not matches. */
   empty: boolean
   rows: ScoredEntry[]
+  /** Wall-clock milliseconds for the retrieval, excluding embedding. */
+  ms?: number
+  /** One line about how this engine answered, surfaced next to the results. */
+  detail?: string
 }
 
 /**

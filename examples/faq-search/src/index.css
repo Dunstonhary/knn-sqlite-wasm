@@ -32,6 +32,15 @@
   --color-score-semantic: var(--score-semantic);
   --color-score-keyword: var(--score-keyword);
   --color-score-hybrid: var(--score-hybrid);
+
+  /* One hue per product area, so a point on the 2D view and the chip in its
+     legend cannot drift apart. Same naming rule as the score channels. */
+  --color-area-inbox: var(--area-inbox);
+  --color-area-contacts: var(--area-contacts);
+  --color-area-connect: var(--area-connect);
+  --color-area-settings: var(--area-settings);
+  --color-area-payments: var(--area-payments);
+  --color-area-integrations: var(--area-integrations);
 }
 
 :root {
@@ -58,6 +67,13 @@
   --score-semantic: oklch(0.585 0.233 277.117);
   --score-keyword: oklch(0.696 0.17 162.48);
   --score-hybrid: oklch(0.685 0.169 237.323);
+
+  --area-inbox: oklch(0.585 0.190 277);
+  --area-contacts: oklch(0.585 0.150 150);
+  --area-connect: oklch(0.585 0.150 230);
+  --area-settings: oklch(0.640 0.140 70);
+  --area-payments: oklch(0.585 0.180 330);
+  --area-integrations: oklch(0.600 0.170 15);
 }
 
 .dark {
@@ -83,6 +99,13 @@
   --score-semantic: oklch(0.673 0.182 276.935);
   --score-keyword: oklch(0.765 0.177 163.223);
   --score-hybrid: oklch(0.746 0.16 232.661);
+
+  --area-inbox: oklch(0.730 0.165 277);
+  --area-contacts: oklch(0.760 0.150 150);
+  --area-connect: oklch(0.750 0.140 230);
+  --area-settings: oklch(0.790 0.135 70);
+  --area-payments: oklch(0.740 0.160 330);
+  --area-integrations: oklch(0.730 0.155 15);
 }
 
 @layer base {

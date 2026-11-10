@@ -1,52 +1,49 @@
-import { BinaryKnnIndex } from 'knn-sqlite-wasm'
+import { BinaryKnnIndex, defaultOverfetch } from 'knn-sqlite-wasm'
+import { EMBED_DIMS, embedCorpus, embedQuery } from './embedder'
 import { FAQ } from './faq-data'
-import { embed, EMBED_DIMS } from './hash-embedder'
-import { keywordScore, norm } from './mock-provider'
+import { fuse } from './fuse'
 import {
   type Area,
   type FaqEntry,
-  HYBRID_WEIGHTS,
-  RELATIVE_FLOOR,
-  SCORE_FLOOR,
   type SearchProvider,
   type SearchResult,
   SUGGESTION_COUNT,
-  TOP_K,
 } from './types'
 
 /**
- * The real pipeline: embed the query, retrieve by binary KNN, fuse with a
- * keyword score.
+ * Binary KNN in JavaScript: one bit per dimension for the wide scan, exact
+ * cosine on the shortlist, all in memory.
  *
- * The semantic half runs through BinaryKnnIndex exactly as production will —
- * one bit per dimension for the wide scan, exact cosine on the shortlist. Only
- * the embedder is a stand-in.
+ * The sibling of `SqliteVecProvider`, which does the same two stages in SQL.
+ * Both take their vectors from the same embedder, so a disagreement between
+ * them is a difference in the engines and nothing else.
  */
 export class KnnSearchProvider implements SearchProvider {
-  readonly name = 'binary KNN + rescore'
+  readonly name = 'binary KNN (JS)'
 
   private readonly corpus: FaqEntry[]
-  private readonly index: BinaryKnnIndex
-  private built = false
+  private index: BinaryKnnIndex | null = null
+  private building: Promise<void> | null = null
 
   constructor(corpus: FaqEntry[] = FAQ) {
     this.corpus = corpus
-    this.index = new BinaryKnnIndex(EMBED_DIMS)
   }
 
-  /** Bytes the binary index occupies — the figure that decides shippability. */
-  get binaryBytes(): number {
-    return this.index.binaryBytes
-  }
-
-  async ready(): Promise<void> {
-    if (this.built) return
-    this.corpus.forEach((entry, i) => {
-      // Question, answer and tags all contribute; the question dominates
-      // because that is what a user's query most resembles.
-      this.index.add(i, embed(`${entry.q} ${entry.q} ${entry.a} ${entry.tags.join(' ')}`))
+  ready(): Promise<void> {
+    this.building ??= this.build().catch((err) => {
+      this.building = null
+      throw err
     })
-    this.built = true
+    return this.building
+  }
+
+  private async build(): Promise<void> {
+    // Corpus vectors are precomputed, so this is a loop over 14 arrays rather
+    // than a model download. The index is ready on the first render.
+    const vectors = embedCorpus()
+    const index = new BinaryKnnIndex(EMBED_DIMS)
+    vectors.forEach((vec, i) => index.add(i, vec))
+    this.index = index
   }
 
   async search(query: string, area: Area | null): Promise<SearchResult> {
@@ -58,39 +55,31 @@ export class KnnSearchProvider implements SearchProvider {
       return { empty: true, rows: pool.slice(0, SUGGESTION_COUNT).map((item) => ({ item })) }
     }
 
-    const qVec = embed(raw)
-    const qWords = norm(raw)
+    const qVec = await embedQuery(raw)
+    const index = this.index
+    if (!index) throw new Error('knn: index missing after build')
 
+    const t0 = performance.now()
     // Retrieve wider than TOP_K: the area filter is applied after retrieval,
     // so a narrow fetch could return nothing for a filtered area.
-    const neighbors = this.index.search(qVec, { k: this.corpus.length })
+    const neighbors = index.search(qVec, { k: this.corpus.length })
+    const ms = performance.now() - t0
 
-    const rows = neighbors
+    const hits = neighbors
       .map((hit) => {
         const item = this.corpus[hit.id]
-        if (!item) return null
-        // Cosine runs -1..1; the UI bars expect 0..1, and a negative match is
-        // no match at all.
-        const sem = Math.max(0, hit.score)
-        const kw = keywordScore(qWords, item)
-        return {
-          item,
-          sem,
-          kw,
-          hybrid: HYBRID_WEIGHTS.semantic * sem + HYBRID_WEIGHTS.keyword * kw,
-        }
+        return item ? { item, sem: hit.score } : null
       })
-      .filter((r): r is NonNullable<typeof r> => r !== null)
-      .filter((r) => area === null || r.item.area === area)
-      .filter((r) => r.hybrid > SCORE_FLOOR)
-      .sort((a, b) => b.hybrid - a.hybrid)
+      .filter((h): h is { item: FaqEntry; sem: number } => h !== null)
 
-    // Keep only what is competitive with the best hit, then cap. Without this
-    // the list always fills to TOP_K, because the embedder gives every entry
-    // some small positive similarity.
-    const best = rows[0]?.hybrid ?? 0
-    const competitive = rows.filter((r) => r.hybrid >= best * RELATIVE_FLOOR).slice(0, TOP_K)
-
-    return { empty: false, rows: competitive }
+    return {
+      empty: false,
+      rows: fuse(hits, raw, area),
+      ms,
+      detail: `${this.corpus.length} vectors scanned as bits, top ${Math.min(
+        defaultOverfetch(this.corpus.length),
+        this.corpus.length,
+      )} rescored in JS`,
+    }
   }
 }

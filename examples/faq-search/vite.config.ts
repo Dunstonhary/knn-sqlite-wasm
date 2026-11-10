@@ -27,6 +27,12 @@ export default defineConfig({
       },
     }),
   ],
+  // Emscripten's loader fetches sqlite3.wasm next to its own module URL, and
+  // a pre-bundled copy under .vite/deps has no such sibling. Excluding it
+  // keeps the module where its wasm actually is.
+  optimizeDeps: {
+    exclude: ['sqlite-vec-wasm-demo'],
+  },
   resolve: {
     alias: {
       '@': resolve(import.meta.dirname, 'src'),

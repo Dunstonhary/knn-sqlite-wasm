@@ -1,5 +1,5 @@
 import { cosine, quantizeBinary } from 'knn-sqlite-wasm'
-import { embed } from './hash-embedder'
+import type { Vectors } from './neighbors'
 import type { FaqEntry } from './types'
 
 /**
@@ -82,15 +82,21 @@ function popcount(a: Uint8Array, b: Uint8Array): number {
  * the rest keep more of their true shape, at the cost of needing to rotate the
  * picture to read it.
  */
-export function project(query: string, corpus: FaqEntry[], axes: 2 | 3 = 2): Projection {
-  const q = embed(query)
+export function project(
+  query: string,
+  corpus: FaqEntry[],
+  vectors: Vectors,
+  axes: 2 | 3 = 2,
+): Projection {
+  const q = vectors.query
   const dims = q.length
   const qBits = quantizeBinary(q)
 
-  const docs = corpus.map((item) => ({
-    item,
-    vec: embed(`${item.q} ${item.q} ${item.a} ${item.tags.join(' ')}`),
-  }))
+  const docs = corpus.map((item, i) => {
+    const vec = vectors.docs[i]
+    if (!vec) throw new Error(`project: no vector for corpus row ${i}`)
+    return { item, vec }
+  })
 
   const scored = docs.map((d) => ({ ...d, cos: cosine(q, d.vec) })).sort((a, b) => b.cos - a.cos)
 
@@ -128,7 +134,7 @@ export function project(query: string, corpus: FaqEntry[], axes: 2 | 3 = 2): Pro
 
   const [e1, e2, e3] = basis
 
-  const vectors: ProjectedVector[] = scored.map((d, i) => {
+  const placed: ProjectedVector[] = scored.map((d, i) => {
     const x = e1 ? dot(d.vec, e1) : 0
     const y = e2 ? dot(d.vec, e2) : 0
     const z = e3 ? dot(d.vec, e3) : 0
@@ -147,18 +153,5 @@ export function project(query: string, corpus: FaqEntry[], axes: 2 | 3 = 2): Pro
     }
   })
 
-  return { query, vectors, dims, bits: dims, anchors }
-}
-
-/** Binary codes for the query and one entry, as bit arrays for the bit view. */
-export function bitPair(query: string, entry: FaqEntry): { q: number[]; d: number[] } {
-  const toBits = (packed: Uint8Array) => {
-    const out: number[] = []
-    for (const byte of packed) for (let b = 7; b >= 0; b--) out.push((byte >> b) & 1)
-    return out
-  }
-  return {
-    q: toBits(quantizeBinary(embed(query))),
-    d: toBits(quantizeBinary(embed(`${entry.q} ${entry.q} ${entry.a} ${entry.tags.join(' ')}`))),
-  }
+  return { query, vectors: placed, dims, bits: dims, anchors }
 }

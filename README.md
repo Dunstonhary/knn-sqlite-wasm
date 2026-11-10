@@ -3,9 +3,12 @@
 Nearest-neighbour vector search for the browser, built on binary quantization
 with an exact-cosine rescore.
 
-> **Status.** The KNN engine is implemented and tested. SQLite persistence is
-> **not wired up yet** — the index is in-memory. `@sqlite.org/sqlite-wasm` is a
-> declared dependency, but no source file imports it so far. See
+> **Status.** Two engines, both implemented and tested. `BinaryKnnIndex` is
+> pure JavaScript and runs anywhere. `SqliteVecStore` hands the same two
+> stages to SQLite with sqlite-vec compiled in, and is browser-only. They are
+> asserted to return the same rankings.
+>
+> The database is in memory; surviving a reload is the open item. See
 > [Roadmap](#roadmap).
 
 ## Why binary quantization
@@ -66,10 +69,69 @@ index.binaryBytes // bytes held by the binary representation
 `searchExact()` runs exhaustive cosine. It is slow by design, and exists so
 tuning runs can measure what the two-stage search recalls.
 
+## The SQLite engine
+
+Same two stages, executed by a database. The vectors sit beside their rows, so
+filtering, joining and inspecting are SQL instead of more JavaScript.
+
+```ts
+import { openVecStore } from 'knn-sqlite-wasm'
+
+const store = await openVecStore({
+  dims: 384,
+  columns: { area: 'text', title: 'text' }, // real columns, not a JSON blob
+  name: 'faq',
+})
+
+store.addMany(docs.map((d, id) => ({
+  id,
+  vector: embeddingFor(d.text),
+  row: { area: d.area, title: d.title },
+})))
+
+const hits = store.search(embeddingFor('money back to a customer'), 5, 500)
+// [{ id, cosine, hamming, row: { area, title } }, ...]
+```
+
+`openVecStore` creates two tables: `faq` for the rows and their full-precision
+`embedding` blobs, and `faq_bits`, a `vec0` virtual table of binary codes.
+Stage 1 is a `MATCH` against `faq_bits`; stage 2 is `vec_distance_cosine` over
+the shortlist. Pass a `filter` to narrow in SQL:
+
+```ts
+store.search(queryVector, 5, 500, { where: 't.area = ?', bind: ['Payments'] })
+```
+
+The filter runs *after* stage 1 picks its shortlist, so a selective filter on a
+large corpus can return fewer than `k` rows even when more exist. Widen
+`overfetch` when that matters — it is the standard cost of filtering an
+approximate index.
+
+`store.exec(sql, bind)` runs anything and returns `{ columns, rows, ms }`, and
+`store.tables()` lists the schema with row counts. Both exist so the database
+can be looked at rather than only queried through this class; the demo's
+**Database** tab is built on them.
+
+### Browser only, and what a bundler needs
+
+This build of SQLite refuses to initialise outside a browser. It also needs
+one line of bundler config, because its loader fetches `sqlite3.wasm` relative
+to its own module URL and a pre-bundled copy has no such sibling:
+
+```ts
+// vite.config.ts
+optimizeDeps: { exclude: ['sqlite-vec-wasm-demo'] }
+```
+
+Without it the wasm request returns your `index.html` and emscripten reports
+`expected magic word 00 61 73 6d`. Two further workarounds — `setStatus` and
+an `onRuntimeInitialized` that defines `HEAPU64` — are handled inside
+`src/sqlite.ts` and documented at the call site.
+
 ## Requirements
 
-Node `>=22.12.0` (floor set by `@sqlite.org/sqlite-wasm` and Vitest 5). An
-`.nvmrc` is provided — `nvm use` picks the right version.
+Node `>=22.12.0` (floor set by Vitest 5). An `.nvmrc` is provided — `nvm use`
+picks the right version.
 
 ```bash
 nvm use
@@ -116,7 +178,8 @@ Tests run in two tiers so the default run stays fast and dependency-free:
   quantization, recall. Picks up `src/**/*.test.ts`.
 - **Browser** (`vitest.browser.config.ts`) — headless Chromium through the
   Playwright provider. Required for anything touching SQLite WASM, OPFS or
-  Workers. Picks up `src/**/*.browser.test.ts`.
+  Workers, which is where `SqliteVecStore` is covered. Picks up
+  `src/**/*.browser.test.ts`.
 
 The browser tier needs browser binaries, so it is kept out of `npm test`:
 
@@ -129,18 +192,39 @@ npm run test:browser
 
 Vite runs in **library mode**, not app mode. `npm run build` emits
 `dist/index.js` (ESM), `dist/index.cjs` (CJS), source maps, and
-`dist/index.d.ts`. `@sqlite.org/sqlite-wasm` is marked external so its `.wasm`
-asset is never inlined into the bundle.
+`dist/index.d.ts`. `sqlite-vec-wasm-demo` is marked external: its loader
+fetches the 4.4 MB `sqlite3.wasm` relative to its own module URL, so inlining
+or rewriting it would break that lookup. Consumers resolve it with their own
+bundler — and must exclude it from dependency pre-bundling (see below).
 
 ## Roadmap
 
-- **SQLite persistence.** Store vectors as blobs and survive reloads via OPFS.
-- **Real embeddings.** Swap the demo's hash embedder for Transformers.js.
-- **sqlite-vec.** `vec0` virtual tables would replace the hand-rolled index,
-  but need sqlite-vec compiled into the WASM binary — WebAssembly has no
-  runtime extension loading. The published `sqlite-vec-wasm-demo@0.1.9` build
-  currently aborts on init (`Module.postRun` already processed), so this means
-  producing our own Emscripten build.
+- **Persistence.** The only real gap. `openVecStore` opens `:memory:`, so the
+  corpus is re-embedded and re-inserted on every page load. Surviving a reload
+  means OPFS, or shipping a prebuilt `.db` and `sqlite3_deserialize`-ing it;
+  the export/reload round-trip is confirmed to work, it is just not wired up.
+- ~~**Real embeddings.**~~ Done in the demo: `Xenova/all-MiniLM-L6-v2` at q8
+  via Transformers.js, 384 dims, behind a toggle so the hash embedder stays
+  the zero-download default. Dropping it into this library means replacing
+  one function; the `SearchProvider` seam was already async for this.
+- ~~**sqlite-vec.**~~ Done, and it needed **no custom Emscripten build**. The
+  published `sqlite-vec-wasm-demo@0.1.9` works as shipped once three things
+  are supplied, none of which are documented upstream:
+  1. `optimizeDeps.exclude` — a pre-bundled copy has no `sqlite3.wasm`
+     sibling to fetch, so the wasm request returns `index.html`.
+  2. `setStatus` — the build `await`s the wasm inside the factory and appends
+     sqlite3's API as `--post-js` after that await, so `run()` reaches
+     `postRun()` first. `setStatus` defers `doRun()` past it. **This is the
+     `Module.postRun` abort**, and it is a sequencing problem, not a build
+     problem.
+  3. `onRuntimeInitialized` — `HEAPU64` is absent from
+     `EXPORTED_RUNTIME_METHODS` and reading an unexported symbol aborts;
+     sqlite3's bootstrap probes it once to set `bigIntEnabled`.
+
+  All three are implemented and commented in `src/sqlite.ts` and covered by
+  `npm run test:browser`. `vec0` sits *beside* `BinaryKnnIndex` rather than
+  replacing it: the JS engine runs outside a browser and needs no wasm, which
+  is worth keeping.
 
 ## License
 

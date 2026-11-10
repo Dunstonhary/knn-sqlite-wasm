@@ -28,5 +28,8 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src"]
+  /* The `knn-sqlite-wasm` path alias points at the library's source, so this
+     program also needs the ambient declaration for the untyped
+     `sqlite-vec-wasm-demo` module that the library's own tsconfig picks up. */
+  "include": ["src", "../../src/sqlite-vec-wasm-demo.d.ts"]
 }

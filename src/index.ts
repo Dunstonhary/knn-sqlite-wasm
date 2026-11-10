@@ -2,9 +2,13 @@
  * knn-sqlite-wasm — nearest-neighbor vector search for the browser.
  *
  * Vectors are quantized to one bit per dimension for a cheap full-corpus scan,
- * then a shortlist is rescored at full precision. See `BinaryKnnIndex`.
+ * then a shortlist is rescored at full precision.
  *
- * SQLite WASM persistence is not wired up yet; the index is in-memory.
+ * Two engines run that design. `BinaryKnnIndex` is pure JavaScript and holds
+ * everything in memory. `SqliteVecStore` hands the same two stages to SQLite
+ * with sqlite-vec compiled in, so the vectors sit beside their rows and the
+ * whole corpus can be queried, filtered and inspected as SQL. The SQLite
+ * engine is browser-only; the JS one runs anywhere.
  */
 
 export { cosine, dot, hamming, normalize } from './distance.js';
@@ -17,6 +21,16 @@ export {
   quantizeBinary,
   quantizeInt8,
 } from './quantize.js';
+export type {
+  ColumnType,
+  SqlResult,
+  StoreStats,
+  TableInfo,
+  VecFilter,
+  VecHit,
+  VecStoreOptions,
+} from './sqlite.js';
+export { bitBytes, loadSqlite, openVecStore, SqliteVecStore } from './sqlite.js';
 
 /** Version of the library surface, bumped alongside package.json. */
 export const VERSION = '0.0.0';

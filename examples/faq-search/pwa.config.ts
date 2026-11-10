@@ -50,12 +50,32 @@ export const pwaOptions = {
   },
 
   workbox: {
-    // The FAQ corpus is bundled into the JS and the index is built in memory,
-    // so precaching the build output is the whole offline story — there is no
-    // runtime fetch to fall back on. `wasm` is listed against the day the
-    // library swaps its in-memory index for SQLite WASM; it matches nothing
-    // today.
+    // Precaching the build output is the offline story for the app shell.
     globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2,wasm}'],
+    // ...but not for the two wasm runtimes, which are 4.2 MB and 26.9 MB and
+    // belong to features most visitors never open. Precaching is an install
+    // cost everyone pays up front; these are paid by whoever actually picks
+    // the sqlite-vec engine or the MiniLM embedder, and the runtime rule
+    // below keeps them offline from the second use onward.
+    globIgnores: ['**/ort-*.wasm', '**/sqlite3-*.wasm'],
+    // Workbox's default ceiling is 2 MB. Nothing precached exceeds it now
+    // that the runtimes are excluded, but leaving the default in place means
+    // a future asset would be dropped silently rather than noisily.
+    maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
+    runtimeCaching: [
+      {
+        // Cache-first and never revalidated: a wasm binary's URL carries its
+        // content hash, so a changed build is a different URL and a cached
+        // one can never be stale.
+        urlPattern: ({ url }: { url: URL }) => url.pathname.endsWith('.wasm'),
+        handler: 'CacheFirst' as const,
+        options: {
+          cacheName: 'wasm-runtimes',
+          expiration: { maxEntries: 8, maxAgeSeconds: 60 * 60 * 24 * 90 },
+          cacheableResponse: { statuses: [0, 200] },
+        },
+      },
+    ],
     navigateFallback: 'index.html',
     cleanupOutdatedCaches: true,
     clientsClaim: true,

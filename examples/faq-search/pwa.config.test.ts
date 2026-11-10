@@ -92,6 +92,19 @@ describe('service worker', () => {
     expect(workbox.skipWaiting).toBe(true)
   })
 
+  it('keeps the wasm runtimes out of the install, not out of the cache', () => {
+    // sqlite3.wasm is 4.2 MB and onnxruntime's is 26.9 MB. Precaching them
+    // would charge every visitor for features most never open; dropping them
+    // entirely would break those features offline. So: excluded from the
+    // precache manifest, cached on first use instead.
+    expect(workbox.globIgnores).toContain('**/sqlite3-*.wasm')
+    expect(workbox.globIgnores).toContain('**/ort-*.wasm')
+    const wasmRule = workbox.runtimeCaching.find((r) => r.options?.cacheName === 'wasm-runtimes')
+    expect(wasmRule?.handler).toBe('CacheFirst')
+    expect(wasmRule?.urlPattern({ url: new URL('https://x.test/a/sqlite3-abc.wasm') })).toBe(true)
+    expect(wasmRule?.urlPattern({ url: new URL('https://x.test/a/index.js') })).toBe(false)
+  })
+
   it('serves the SPA entry for unknown routes', () => {
     expect(workbox.navigateFallback).toBe('index.html')
   })
