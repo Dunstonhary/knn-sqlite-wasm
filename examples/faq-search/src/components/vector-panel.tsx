@@ -71,6 +71,8 @@ export function VectorPanel({ query, vectors }: { query: string; vectors: Vector
         <div className="flex flex-col gap-3 p-4">
           {view === '2d' ? (
             <>
+              <Space2D data={data} />
+
               <p className="text-xs leading-relaxed text-muted-foreground">
                 All {FAQ.length} entries around the query at the origin.{' '}
                 <span className="font-medium text-foreground">
@@ -105,7 +107,6 @@ export function VectorPanel({ query, vectors }: { query: string; vectors: Vector
                   </>
                 )}
               </p>
-              <Space2D data={data} />
 
               <ul className="flex flex-col gap-1">
                 {neighbors.map((p) => (
