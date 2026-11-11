@@ -44,7 +44,7 @@ export interface Vectors {
  * The control is odd anyway because it costs nothing and removes the one tie
  * that is easy to hit, and the view flags the ties it cannot prevent.
  */
-export const K_CHOICES = [1, 3, 5, 7, 9, 11, 13] as const
+export const K_CHOICES = [1, 3, 5, 7, 9] as const
 
 export type Layout = 'plane' | 'mds'
 

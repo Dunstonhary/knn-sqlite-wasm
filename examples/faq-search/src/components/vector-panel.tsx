@@ -34,7 +34,15 @@ export function VectorPanel({ query, vectors }: { query: string; vectors: Vector
   return (
     <section className="flex flex-col rounded-xl border bg-card">
       <header className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b px-4 py-3">
-        <h2 className="mr-auto text-sm font-semibold">Vector space</h2>
+        <h2 className="mr-auto flex items-center gap-2 text-sm font-semibold">
+          Vector space
+          <span
+            className="rounded-full border px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground"
+            title="Diagnostic view — visualizes retrieval, not part of the production search path"
+          >
+            Debug
+          </span>
+        </h2>
         <Segmented<ViewKey>
           label="View"
           value={view}
@@ -48,6 +56,7 @@ export function VectorPanel({ query, vectors }: { query: string; vectors: Vector
           <>
             <Segmented<number>
               label="k"
+              title="k = how many nearest neighbors vote on the area below; it only drives this panel, never the result list"
               value={k}
               options={K_CHOICES.map((n) => [n, String(n)] as [number, string])}
               onChange={setK}

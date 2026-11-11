@@ -25,9 +25,10 @@ function Cell({ value }: { value: unknown }) {
     return <span className="text-muted-foreground italic">null</span>
   }
   if (value instanceof Uint8Array) {
-    const head = [...value.slice(0, 6)].map((b) => b.toString(16).padStart(2, '0')).join(' ')
+    const hex = [...value].map((b) => b.toString(16).padStart(2, '0')).join(' ')
+    const head = hex.split(' ').slice(0, 6).join(' ')
     return (
-      <span className="whitespace-nowrap">
+      <span className="whitespace-nowrap" title={hex}>
         <span className="font-semibold">BLOB</span>{' '}
         <span className="text-muted-foreground">{bytes(value.length)}</span>{' '}
         <span className="text-muted-foreground">{head}…</span>
@@ -35,7 +36,7 @@ function Cell({ value }: { value: unknown }) {
     )
   }
   if (typeof value === 'number') return <span className="tabular-nums">{value}</span>
-  return <span>{String(value)}</span>
+  return <span title={String(value)}>{String(value)}</span>
 }
 
 function Grid({ result }: { result: SqlResult }) {
@@ -137,7 +138,15 @@ export function DbView({ store }: { store: SqliteVecStore | null }) {
     <section className="flex flex-col rounded-xl border bg-card">
       <header className="flex items-center gap-2 border-b px-4 py-3">
         <Database className="size-4" />
-        <h2 className="text-sm font-semibold">Database</h2>
+        <h2 className="flex items-center gap-2 text-sm font-semibold">
+          Database
+          <span
+            className="rounded-full border px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground"
+            title="Diagnostic view — inspect and query the live store, not part of the production search path"
+          >
+            Debug
+          </span>
+        </h2>
         <span className="ml-auto text-[11px] text-muted-foreground">
           the one the sqlite-vec engine searches, live
         </span>
