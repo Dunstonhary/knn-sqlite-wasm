@@ -33,6 +33,21 @@ export default defineConfig({
   optimizeDeps: {
     exclude: ['sqlite-vec-wasm-demo'],
   },
+  build: {
+    rollupOptions: {
+      output: {
+        // sqlite-vec-wasm-demo's own pre-js hardcodes its wasm fetch to
+        // `new URL('sqlite3.wasm', import.meta.url)` — it ignores any
+        // `locateFile` override, so the only way to satisfy it in a
+        // production build is to keep this one asset unhashed, landing next
+        // to the JS chunk that imports it (both under `assets/`).
+        assetFileNames: (asset) =>
+          asset.names?.includes('sqlite3.wasm')
+            ? 'assets/sqlite3.wasm'
+            : 'assets/[name]-[hash][extname]',
+      },
+    },
+  },
   resolve: {
     alias: {
       '@': resolve(import.meta.dirname, 'src'),

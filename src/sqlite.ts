@@ -128,10 +128,13 @@ let modulePromise: ReturnType<typeof sqlite3InitModule> | null = null;
  * sqlite3's bootstrap reads `Module.HEAPU64` exactly once, to decide
  * `bigIntEnabled`, so it has to find something there before postRun runs.
  *
- * Bundlers need a third piece: the loader fetches `sqlite3.wasm` next to its
- * own module URL, so the package must be excluded from dependency
- * pre-bundling (`optimizeDeps.exclude` under Vite) or that fetch returns the
- * host page instead of the wasm.
+ * Bundlers need a third piece: this build's own pre-js hardcodes
+ * `Module.locateFile` to `new URL('sqlite3.wasm', import.meta.url)` and
+ * overwrites any `locateFile` passed in here, so the only lever a host app
+ * has is making sure `sqlite3.wasm` actually lands, unhashed, next to the
+ * bundled chunk that imports this module (a dev server gets this for free by
+ * excluding the package from dependency pre-bundling, `optimizeDeps.exclude`
+ * under Vite; a production build needs its own `assetFileNames` override).
  */
 export function loadSqlite(): ReturnType<typeof sqlite3InitModule> {
   modulePromise ??= sqlite3InitModule({
