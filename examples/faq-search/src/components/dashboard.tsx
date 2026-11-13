@@ -1,4 +1,4 @@
-import { Boxes } from 'lucide-react'
+import { Boxes, Bug } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { DbView } from '@/components/db-view'
 import { SearchPanel } from '@/components/search-panel'
@@ -37,10 +37,17 @@ export function Dashboard() {
   const [query, setQuery] = useState<string>(SAMPLE_QUERIES[0])
   const [area, setArea] = useState<Area | null>(null)
   const [showScores, setShowScores] = useState(false)
+  const [showDebug, setShowDebug] = useState(false)
 
   const encoder = useEncoder()
   const isPrecomputed = precomputedQuery(draft) !== null
   const blocked = draft.trim().length > 0 && !isPrecomputed && encoder.state !== 'ready'
+
+  // Start the download as soon as the page opens, so a custom query rarely
+  // has to wait on it — the sample queries still need nothing either way.
+  useEffect(() => {
+    encoder.load().catch(() => {})
+  }, [encoder.load])
 
   useEffect(() => {
     if (blocked) return
@@ -73,18 +80,38 @@ export function Dashboard() {
           {stats && <Chip label="sqlite-vec" value={stats.vecVersion} />}
           <Chip
             label="model"
-            value={encoder.state === 'ready' ? 'loaded' : 'not loaded'}
+            value={
+              encoder.state === 'ready'
+                ? 'loaded'
+                : encoder.state === 'loading'
+                  ? 'loading'
+                  : 'not loaded'
+            }
           />
+          <button
+            type="button"
+            aria-pressed={showDebug}
+            onClick={() => setShowDebug((v) => !v)}
+            className={`flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-[11px] font-medium transition-colors ${
+              showDebug
+                ? 'bg-foreground text-background'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <Bug className="size-3.5" />
+            Debug views
+          </button>
         </div>
       </header>
 
       <p className="text-xs leading-relaxed text-muted-foreground">
         The {CORPUS_COUNT} corpus vectors and the six sample queries were embedded at build time
         and ship as 40&nbsp;KB of base64, so everything here works before anything is downloaded.
-        Type a query of your own and the encoder is fetched then, and only then.
+        The 21.9&nbsp;MB sentence encoder starts fetching in the background now, so a query of
+        your own rarely has to wait on it.
       </p>
 
-      <div className="grid items-start gap-4 xl:grid-cols-2">
+      <div className={`grid items-start gap-4 ${showDebug ? 'xl:grid-cols-2' : 'mx-auto w-full max-w-2xl'}`}>
         <SearchPanel
           draft={draft}
           onDraft={setDraft}
@@ -102,10 +129,10 @@ export function Dashboard() {
           showScores={showScores}
           onShowScores={setShowScores}
         />
-        <VectorPanel query={query} vectors={vectors} />
+        {showDebug && <VectorPanel query={query} vectors={vectors} />}
       </div>
 
-      <DbView store={engines.store} />
+      {showDebug && <DbView store={engines.store} />}
 
       <p className="pb-6 text-center text-[11.5px] leading-relaxed text-muted-foreground">
         One pipeline, two engines: 1 bit per dimension for the scan, exact cosine on the
